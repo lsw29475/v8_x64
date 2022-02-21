@@ -1,7 +1,6 @@
 "use scrict";
 
 const PointerTag = host.Int64(0x1);
-const SmiTag = host.Int64(0xFFFFFFFF);
 const SmiShiftRight = host.Int64(0x32);
 
 const TypeName = ["SMI"];
@@ -15,12 +14,16 @@ function fix_v8addr(Addr) {
 class __JSValue {
     constructor(Value) {
         this._Value = Value;
-        this._IsSmi = !Value.bitwiseAnd(SmiTag);
+        this._IsSmi = !(!Value.bitwiseAnd(PointerTag));
+        log(this._IsSmi);
     }
 
-    get Pagload() {
+    get Payload() {
         if (this._IsSmi) {
-            return this._Value.bitwiseShiftRight(SmiShiftRight);
+            return this._Value.bitwiseShiftRight(PointerTag);
+        }
+        else {
+            return this._Value = fix_v8addr(this._Value);
         }
     }
 
@@ -28,7 +31,20 @@ class __JSValue {
         if (this._IsSmi) {
             return "SMI";
         }
+        else {
+            return "Pointer";
+        }
     }
+}
+
+class __JSObject {
+    constructor(Addr) {
+        this._Addr = Addr;
+    }
+}
+
+function v8dump_jsobject(Addr) {
+    const JSObject = new __JSObject(Addr);
 }
 
 function v8dump_jsvalue(Value) {
@@ -37,7 +53,12 @@ function v8dump_jsvalue(Value) {
     }
 
     const JSValue = new __JSValue(Value);
-
+    if (JSValue.Tag == "SMI") {
+        log("SMI: " + JSValue.Payload);
+    }
+    else {
+        v8dump_jsobject(JSValue.Payload);
+    }
 }
 
 function initializeScript() {
