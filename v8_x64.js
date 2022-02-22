@@ -8,14 +8,40 @@ const TypeName = ["SMI"];
 const log = p => host.diagnostics.debugLog(p + "\n");
 
 function fix_v8addr(Addr) {
-    return Addr.bitwiseAnd(PointerTag);
+    return Addr - Addr.bitwiseAnd(PointerTag);
+}
+
+function read_u64(Addr) {
+    let Value = 0;
+    try {
+        Value = host.memory.readMemoryValues(Addr, 1, 8)[0];
+    } catch (err) {
+    }
+    return Value;
+}
+
+function read_u32(Addr) {
+    let Value = 0;
+    try {
+        Value = host.memory.readMemoryValues(Addr, 1, 4)[0];
+    } catch (err) {
+    }
+    return Value;
+}
+
+function read_u16(Addr) {
+    let Value = 0;
+    try {
+        Value = host.memory.readMemoryValues(Addr, 1, 2)[0];
+    } catch (err) {
+    }
+    return Value;
 }
 
 class __JSValue {
     constructor(Value) {
         this._Value = Value;
-        this._IsSmi = !(!Value.bitwiseAnd(PointerTag));
-        log(this._IsSmi);
+        this._IsSmi = Value.bitwiseAnd(PointerTag) == 0 ? true : false;
     }
 
     get Payload() {
@@ -40,11 +66,20 @@ class __JSValue {
 class __JSObject {
     constructor(Addr) {
         this._Addr = Addr;
+        this._Value = new __JSValue(read_u32(Addr));
+    }
+
+    Display() {
+        if (this._Value.Tag == "SMI") {
+            log("SMI: " + this._Value.Payload);
+        }
     }
 }
 
 function v8dump_jsobject(Addr) {
     const JSObject = new __JSObject(Addr);
+
+    JSObject.Display();
 }
 
 function v8dump_jsvalue(Value) {
@@ -57,6 +92,7 @@ function v8dump_jsvalue(Value) {
         log("SMI: " + JSValue.Payload);
     }
     else {
+        log("Pointer: ");
         v8dump_jsobject(JSValue.Payload);
     }
 }
