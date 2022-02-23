@@ -1,9 +1,44 @@
 "use scrict";
 
 const PointerTag = host.Int64(0x1);
-const SmiShiftRight = host.Int64(0x32);
+const PointerBaseAnd = host.Int64(0xFFFFFFFF00000000);
 
 const TypeName = ["SMI"];
+
+const MapInstanceTypeToName = {
+    2101: "JS_ARRAY_TYPE"
+};
+
+const MapFieldsNameToOffset = {
+    "MetaMap": 0,
+    "InstanceSize": 4,
+    "InObjectPropertiesStartOrConstructorFunctionIndex": 5,
+    "UsedOrUnusedInstanceSize": 6,
+    "VisitorId": 7,
+    "InstanceType": 8,
+    "BitField": 0xA,
+    "BitField2": 0xB,
+    "BitField3": 0xC,
+    "Prototype": 0x10,
+    "ConstructorOrBackPointerOrNativeContext": 0x14,
+    "InstanceDescriptors": 0x18,
+    "DependentCode": 0x1C,
+    "PrototypeValidityCell": 0x20,
+    "TransitionsOrPrototypeInfo": 0x24,
+}
+
+const JSArrayFieldsNameToOffset = {
+    "Map": 0,
+    "PropertiesOrHash": 4,
+    "Elements": 8,
+    "Length": 0xC,
+};
+
+const JSFixedArrayBaseFieldsNameToOffset = {
+    "Map": 0,
+    "Length": 4,
+    "Value": 8,
+}
 
 const log = p => host.diagnostics.debugLog(p + "\n");
 
@@ -63,15 +98,87 @@ class __JSValue {
     }
 }
 
+class __JSMap {
+    constructor(Addr) {
+        this._MetaMap = read_u32(Addr + MapFieldsNameToOffset["MetaMap"]);
+        this._InstanceSize = read_u32(Addr + MapFieldsNameToOffset["InstanceSize"]);
+        this._InstanceType = read_u16(Addr + MapFieldsNameToOffset["InstanceType"]);
+    }
+}
+
+class __JSFixedArrayBase {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Map = this._Base + new __JSValue(read_u32(Addr + JSFixedArrayBaseFieldsNameToOffset["Map"])).Payload;
+        this._Length = new __JSValue(read_u32(Addr + JSFixedArrayBaseFieldsNameToOffset["Length"]));
+    }
+
+    Display() {
+        const Content = [];
+        for (let Idx = 0; Idx < this._Length.Payload; Idx++) {
+            let Value = new __JSValue(read_u32(this._Addr + JSFixedArrayBaseFieldsNameToOffset["Value"] + Idx * 4));
+
+            if (Value.Tag == "SMI") {
+                Content.push(Value.Payload);
+            }
+            else {
+                Content.push(this._Base + Value.Payload);
+            }
+        }
+
+        log("JSFixedArrayBase: " + Content);
+    }
+}
+
+class __JSArray {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Map = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Map"])).Payload;
+        this._PropertiesOrHash = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["PropertiesOrHash"])).Payload;
+        this._Elements = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Elements"])).Payload;
+        this._Length = new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Length"]));
+
+        this._ElementsData = new __JSFixedArrayBase(this._Elements);
+    }
+
+    Display() {
+        log("ObjType: JSArray");
+        log("JSArray.Map: " + this._Map.toString(16));
+        log("JSArray.PropertiesOrHash: " + this._PropertiesOrHash.toString(16));
+        log("JSArray.Elements: " + this._Elements.toString(16));
+        log("JSArray.Length: " + this._Length.Payload);
+        this._ElementsData.Display();
+    }
+}
+
+const MapInstanceNameToObjectType = {
+    "JS_ARRAY_TYPE": __JSArray,
+};
+
 class __JSObject {
     constructor(Addr) {
         this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Value = new __JSValue(read_u32(Addr));
+
+        if (this._Value.Tag == "SMI") {
+            return;
+        }
+
+        this._Map = new __JSMap(this._Base + this._Value.Payload);
+        if (MapInstanceTypeToName.hasOwnProperty(this._Map._InstanceType)) {
+            this._ObjectFields = new MapInstanceNameToObjectType[MapInstanceTypeToName[this._Map._InstanceType]](Addr);
+        }
     }
 
     Display() {
         if (this._Value.Tag == "SMI") {
             log("SMI: " + this._Value.Payload);
+        }
+        else {
+            this._ObjectFields.Display();
         }
     }
 }
