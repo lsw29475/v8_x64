@@ -6,7 +6,10 @@ const PointerBaseAnd = host.Int64(0xFFFFFFFF00000000);
 const TypeName = ["SMI"];
 
 const MapInstanceTypeToName = {
+    0: "INTERNALIZED_STRING_TYPE",
+    8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
     2101: "JS_ARRAY_TYPE"
+
 };
 
 const MapFieldsNameToOffset = {
@@ -37,7 +40,13 @@ const JSArrayFieldsNameToOffset = {
 const JSFixedArrayBaseFieldsNameToOffset = {
     "Map": 0,
     "Length": 4,
-    "Value": 8,
+    "Values": 8,
+}
+
+const JSStringFieldsNameToOffset = {
+    "Map": 0,
+    "RawHash": 4,
+    "Length": 8,
 }
 
 const log = p => host.diagnostics.debugLog(p + "\n");
@@ -117,7 +126,7 @@ class __JSFixedArrayBase {
     Display() {
         const Content = [];
         for (let Idx = 0; Idx < this._Length.Payload; Idx++) {
-            let Value = new __JSValue(read_u32(this._Addr + JSFixedArrayBaseFieldsNameToOffset["Value"] + Idx * 4));
+            let Value = new __JSValue(read_u32(this._Addr + JSFixedArrayBaseFieldsNameToOffset["Values"] + Idx * 4));
 
             if (Value.Tag == "SMI") {
                 Content.push(Value.Payload);
@@ -127,7 +136,10 @@ class __JSFixedArrayBase {
             }
         }
 
-        log("JSFixedArrayBase: " + Content);
+        log("Content: ")
+        for (let Idx = 0; Idx < 2; Idx++) {
+            log(Content[Idx].toString(16));
+        }
     }
 }
 
@@ -153,8 +165,19 @@ class __JSArray {
     }
 }
 
+class __JSString {
+    constructor(Addr) {
+        this._Addr = Addr;
+    }
+
+    Display() {
+        log("ObjType: JSString");
+    }
+}
+
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
+    "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
 };
 
 class __JSObject {
