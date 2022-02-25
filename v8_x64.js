@@ -168,6 +168,9 @@ class __JSArray {
 class __JSString {
     constructor(Addr) {
         this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Map = new __JSMap(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
+        this._Length = new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Length"]));
     }
 
     Display() {
