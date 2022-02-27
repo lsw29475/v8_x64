@@ -2,6 +2,7 @@
 
 const PointerTag = host.Int64(0x1);
 const PointerBaseAnd = host.Int64(0xFFFFFFFF00000000);
+const StringRepresentationAndEncodingMask = host.Int64(0xF);
 
 const TypeName = ["SMI"];
 
