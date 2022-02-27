@@ -4,6 +4,7 @@ const PointerTag = host.Int64(0x1);
 const PointerBaseAnd = host.Int64(0xFFFFFFFF00000000);
 const StringRepresentationAndEncodingMask = host.Int64(0xF);
 const SeqOneByteStringTag = host.Int64(0x8);
+const SeqTwoByteStringTag = host.Int64(0x0);
 
 const TypeName = ["SMI"];
 
@@ -49,6 +50,27 @@ const JSStringFieldsNameToOffset = {
     "Map": 0,
     "RawHash": 4,
     "Length": 8,
+    "Values": 0xC,
+}
+
+function printable(Byte) {
+    return Byte >= 0x20 && Byte <= 0x7e;
+}
+
+function isnull(Byte) {
+    return Byte == 0x00;
+}
+
+function byte_to_str(Byte) {
+    if (printable(Byte)) {
+        return String.fromCharCode(Byte);
+    }
+
+    if (isnull(Byte)) {
+        return "";
+    }
+
+    return "\\x" + Byte.toString(16).padStart(2, "0");
 }
 
 const log = p => host.diagnostics.debugLog(p + "\n");
@@ -172,16 +194,17 @@ class __JSString {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Map = new __JSMap(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
-        this._Length = new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Length"]));
-        this._Type = this._Map["InstanceType"].bitwiseAnd(StringRepresentationAndEncodingMask);
+        this._Length = read_u32(Addr + JSStringFieldsNameToOffset["Length"]);
+        this._Type = this._Map._InstanceType.bitwiseAnd(StringRepresentationAndEncodingMask);
 
         if (this._Type == SeqOneByteStringTag) {
-
+            this._String = Array.from(host.memory.readMemoryValues(this._Addr + JSStringFieldsNameToOffset["Values"], this._Length, 1)).map(p => byte_to_str(p)).join("");
         }
     }
 
     Display() {
         log("ObjType: JSString");
+        log("Data: " + this._String);
     }
 }
 
