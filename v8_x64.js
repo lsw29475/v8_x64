@@ -172,6 +172,7 @@ class __JSString {
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Map = new __JSMap(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
         this._Length = new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Length"]));
+        this._Type = this._Map["InstanceType"].bitwiseAnd(StringRepresentationAndEncodingMask);
     }
 
     Display() {
