@@ -11,8 +11,11 @@ const TypeName = ["SMI"];
 const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
-    2101: "JS_ARRAY_TYPE"
+    2100: "JS_ARRAY_TYPE",
 
+    /*V8 10.1.0
+    2101: "JS_ARRAY_TYPE"
+    */
 };
 
 const MapFieldsNameToOffset = {
