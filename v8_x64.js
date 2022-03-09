@@ -12,6 +12,7 @@ const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
     2100: "JS_ARRAY_TYPE",
+    2060: "JS_FUNCTION_TYPE",
 
     /*V8 10.1.0
     2101: "JS_ARRAY_TYPE"
@@ -54,6 +55,33 @@ const JSStringFieldsNameToOffset = {
     "RawHash": 4,
     "Length": 8,
     "Values": 0xC,
+}
+
+const JSFunctionFieldsNameToOffset = {
+    "Map": 0,
+    "PropertiesOrHash": 4,
+    "Elements": 8,
+    "SharedFunctionInfo": 0xC,
+    "Context": 0x10,
+    "FeedbackCell": 0x14,
+    "Code": 0x18,
+    "PrototypeOrInitialMap": 0x1C,
+}
+
+const JSSharedFunctionInfoFieldsNameToOffset = {
+    "Map": 0,
+    "FunctionData": 4,
+    "NameOrScopeInfo": 8,
+    "OuterScopeInfoOrFeedbackMetadata": 0xC,
+    "ScriptOrDebugInfo": 0x10,
+    "Length": 0x14,
+    "FormalParameterCount": 0x16,
+    "FunctionToken": 0x18,
+    "ExpectedNofProperties": 0x1A,
+    "Flags2": 0x1B,
+    "Flags": 0x1C,
+    "FunctionLiteralId": 0x20,
+    "UniqueId": 0x24,
 }
 
 function printable(Byte) {
@@ -211,9 +239,31 @@ class __JSString {
     }
 }
 
+class __JSSharedFunctionInfo {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Name = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSSharedFunctionInfoFieldsNameToOffset["NameOrScopeInfo"])).Payload);
+    }
+}
+
+class __JSFunction {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._SharedFunctionInfo = new __JSSharedFunctionInfo(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["SharedFunctionInfo"])).Payload);
+    }
+
+    Display() {
+        log("ObjType: JSFunction");
+        log("FunctionName: " + this._SharedFunctionInfo._Name._String);
+    }
+}
+
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
+    "JS_FUNCTION_TYPE": __JSFunction,
 };
 
 class __JSObject {
