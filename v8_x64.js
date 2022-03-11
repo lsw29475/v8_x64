@@ -13,6 +13,7 @@ const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
     40: "ONE_BYTE_STRING_TYPE",
+    166: "FEEDBACK_VECTOR_TYPE",
     2100: "JS_ARRAY_TYPE",
     2060: "JS_FUNCTION_TYPE",
 
@@ -323,7 +324,13 @@ class __JSFeedbackCell {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Value = read_u32(Addr + JSFeedbackCellFieldsNameToOffset["Value"]);
-        this._ValueMap = new __JSMap(this._Base + new __JSValue(read_u32(Addr + this._Value)).Payload);
+        this._ValueMap = new __JSMap(this._Base + read_u32(new __JSValue(this._Base + this._Value).Payload));
+        this._Has_vector = false;
+
+        if (MapInstanceTypeToName[this._ValueMap._InstanceType] == "FEEDBACK_VECTOR_TYPE") {
+            this._Value = new __JSFeedbackVector(this._Base + new __JSValue(this._Value).Payload);
+            this._Has_vector = true;
+        }
     }
 }
 
@@ -350,6 +357,9 @@ class __JSFunction {
         log("FunctionName: " + this._SharedFunctionInfo._Name._String);
         log("FunctionScript: " + this._SharedFunctionInfo._Script._Source._String);
         log("FunctionKind: " + CodeKindToName[this._Code._Kind]);
+        if (this._FeedbackCell._Has_vector == true) {
+            log("FunctioinInvocation: " + this._FeedbackCell._Value._InvocationCount);
+        }
     }
 }
 
