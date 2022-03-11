@@ -5,19 +5,38 @@ const PointerBaseAnd = host.Int64(0xFFFFFFFF00000000);
 const StringRepresentationAndEncodingMask = host.Int64(0xF);
 const SeqOneByteStringTag = host.Int64(0x8);
 const SeqTwoByteStringTag = host.Int64(0x0);
+const CodeKindEncodingMask = host.Int64(0xF);
 
 const TypeName = ["SMI"];
 
 const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
+    40: "ONE_BYTE_STRING_TYPE",
     2100: "JS_ARRAY_TYPE",
     2060: "JS_FUNCTION_TYPE",
 
     /*V8 10.1.0
     2101: "JS_ARRAY_TYPE"
     */
-};
+}
+
+const CodeKindToName = {
+    0: "BYTECODE_HANDLER",
+    1: "FOR_TESTING",
+    2: "BUILTIN",
+    3: "REGEXP",
+    4: "WASM_FUNCTION",
+    5: "WASM_TO_CAPI_FUNCTION",
+    6: "WASM_TO_JS_FUNCTION",
+    7: "JS_TO_WASM_FUNCTION",
+    8: "JS_TO_JS_FUNCTION",
+    9: "C_WASM_ENTRY",
+    10: "INTERPRETED_FUNCTION",
+    11: "BASELINE",
+    12: "TURBOPROP",
+    13: "TURBOFAN",
+}
 
 const MapFieldsNameToOffset = {
     "MetaMap": 0,
@@ -42,7 +61,7 @@ const JSArrayFieldsNameToOffset = {
     "PropertiesOrHash": 4,
     "Elements": 8,
     "Length": 0xC,
-};
+}
 
 const JSFixedArrayBaseFieldsNameToOffset = {
     "Map": 0,
@@ -66,6 +85,41 @@ const JSFunctionFieldsNameToOffset = {
     "FeedbackCell": 0x14,
     "Code": 0x18,
     "PrototypeOrInitialMap": 0x1C,
+}
+
+const JSFeedbackCellFieldsNameToOffset = {
+    "Map": 0,
+    "Value": 0x4,
+}
+
+const JSFeedbackVectorFieldsNamtToOffset = {
+    "Map": 0,
+    "Length": 0x4,
+    "InvocationCount": 0x8,
+    "ProfilerTicks": 0xC,
+    "Flags": 0x10,
+    "SharedFunctionInfo": 0x14,
+    "MaybeOptimizedCode": 0x18,
+    "ClosureFeedbackCellArray": 0x1C,
+}
+
+const JSScriptFieldsNameToOffset = {
+    "Map": 0,
+    "Source": 4,
+}
+
+const JSCodeFieldsNameToOffset = {
+    "Map": 0,
+    "RelocationInfo": 0x4,
+    "DeoptimizationDataOrInterpreterData": 0x8,
+    "PositionTable": 0xC,
+    "CodeDataContainer": 0x10,
+    "InstructionSize": 0x14,
+    "MetadataSize": 0x18,
+    "Flags": 0x1C,
+    "BuiltinIdex": 0x20,
+    "InlinedBytecodeSize": 0x24,
+    "HandlerTableOffset": 0x28,
 }
 
 const JSSharedFunctionInfoFieldsNameToOffset = {
@@ -239,11 +293,46 @@ class __JSString {
     }
 }
 
+class __JSScript {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Source = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSScriptFieldsNameToOffset["Source"])).Payload);
+    }
+}
+
 class __JSSharedFunctionInfo {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Name = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSSharedFunctionInfoFieldsNameToOffset["NameOrScopeInfo"])).Payload);
+        this._Script = new __JSScript(this._Base + new __JSValue(read_u32(Addr + JSSharedFunctionInfoFieldsNameToOffset["ScriptOrDebugInfo"])).Payload);
+    }
+}
+
+class __JSFeedbackVector {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._InvocationCount = read_u32(Addr + JSFeedbackVectorFieldsNamtToOffset["InvocationCount"]);
+    }
+}
+
+class __JSFeedbackCell {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Value = read_u32(Addr + JSFeedbackCellFieldsNameToOffset["Value"]);
+        this._ValueMap = new __JSMap(this._Base + new __JSValue(read_u32(Addr + this._Value)).Payload);
+    }
+}
+
+class __JSCode {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Flags = read_u32(Addr + JSCodeFieldsNameToOffset["Flags"]);
+        this._Kind = Number(this._Flags.bitwiseAnd(CodeKindEncodingMask));
     }
 }
 
@@ -252,17 +341,22 @@ class __JSFunction {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._SharedFunctionInfo = new __JSSharedFunctionInfo(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["SharedFunctionInfo"])).Payload);
+        this._FeedbackCell = new __JSFeedbackCell(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["FeedbackCell"])).Payload);
+        this._Code = new __JSCode(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["Code"])).Payload);
     }
 
     Display() {
         log("ObjType: JSFunction");
         log("FunctionName: " + this._SharedFunctionInfo._Name._String);
+        log("FunctionScript: " + this._SharedFunctionInfo._Script._Source._String);
+        log("FunctionKind: " + CodeKindToName[this._Code._Kind]);
     }
 }
 
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
+    "ONE_BYTE_STRING_TYPE": __JSString,
     "JS_FUNCTION_TYPE": __JSFunction,
 };
 
