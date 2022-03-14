@@ -16,7 +16,7 @@ const MapInstanceTypeToName = {
     166: "FEEDBACK_VECTOR_TYPE",
     2100: "JS_ARRAY_TYPE",
     2060: "JS_FUNCTION_TYPE",
-
+    193: "BYTECODE_ARRAY_TYPE",
     /*V8 10.1.0
     2101: "JS_ARRAY_TYPE"
     */
@@ -137,6 +137,20 @@ const JSSharedFunctionInfoFieldsNameToOffset = {
     "Flags": 0x1C,
     "FunctionLiteralId": 0x20,
     "UniqueId": 0x24,
+}
+
+const JSByteCodeArrayFieldsNameToOffset = {
+    "Map": 0,
+    "Length": 4,
+    "Values": 8,
+    "ConstantPool": 0xC,
+    "HandlerTable": 0x10,
+    "SourcePositionTable": 0x14,
+    "FrameSize": 0x18,
+    "ParameterSize": 0x1C,
+    "IncomingNewTargetOrGeneratorRegister": 0x20,
+    "OsrLoopNestingLevel": 0x24,
+    "BytecodeAge": 0x25,
 }
 
 function printable(Byte) {
@@ -363,11 +377,19 @@ class __JSFunction {
     }
 }
 
+class __JSByteCodeArray {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+    }
+}
+
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "ONE_BYTE_STRING_TYPE": __JSString,
     "JS_FUNCTION_TYPE": __JSFunction,
+    "BYTECODE_ARRAY_TYPE": __JSByteCodeArray,
 };
 
 class __JSObject {
