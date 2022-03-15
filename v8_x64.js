@@ -142,15 +142,15 @@ const JSSharedFunctionInfoFieldsNameToOffset = {
 const JSByteCodeArrayFieldsNameToOffset = {
     "Map": 0,
     "Length": 4,
-    "Values": 8,
-    "ConstantPool": 0xC,
-    "HandlerTable": 0x10,
-    "SourcePositionTable": 0x14,
-    "FrameSize": 0x18,
-    "ParameterSize": 0x1C,
-    "IncomingNewTargetOrGeneratorRegister": 0x20,
-    "OsrLoopNestingLevel": 0x24,
-    "BytecodeAge": 0x25,
+    "ConstantPool": 0x8,
+    "HandlerTable": 0xC,
+    "SourcePositionTable": 0x10,
+    "FrameSize": 0x14,
+    "ParameterSize": 0x18,
+    "IncomingNewTargetOrGeneratorRegister": 0x1C,
+    "OsrLoopNestingLevel": 0x20,
+    "BytecodeAge": 0x21,
+    "Value": 0x22,
 }
 
 function printable(Byte) {
@@ -381,6 +381,19 @@ class __JSByteCodeArray {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Length = new __JSValue(read_u32(Addr + JSByteCodeArrayFieldsNameToOffset["Length"]));
+        this._Bytecodes = [];
+
+        for (let Index = 0; Index < this._Length.Payload; Index++) {
+            var bytecode = host.memory.readMemoryValues(Addr + JSByteCodeArrayFieldsNameToOffset["Value"] + Index, 1, 1);
+            this._Bytecodes.push(bytecode);
+        }
+    }
+
+    Display() {
+        log("ObjType: JSByteCodeArray");
+        log("ByteCodeLength: " + this._Length.Payload);
+        log("ByteCode: " + this._Bytecodes);
     }
 }
 
