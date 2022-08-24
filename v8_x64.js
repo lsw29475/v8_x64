@@ -9,17 +9,14 @@ const CodeKindEncodingMask = host.Int64(0xF);
 
 const TypeName = ["SMI"];
 
+//instance-types-tq.h
 const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
     40: "ONE_BYTE_STRING_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
-    2100: "JS_ARRAY_TYPE",
+    1059: "JS_ARRAY_TYPE",
     2060: "JS_FUNCTION_TYPE",
-    193: "BYTECODE_ARRAY_TYPE",
-    /*V8 10.1.0
-    2101: "JS_ARRAY_TYPE"
-    */
 }
 
 const CodeKindToName = {
@@ -137,20 +134,6 @@ const JSSharedFunctionInfoFieldsNameToOffset = {
     "Flags": 0x1C,
     "FunctionLiteralId": 0x20,
     "UniqueId": 0x24,
-}
-
-const JSByteCodeArrayFieldsNameToOffset = {
-    "Map": 0,
-    "Length": 4,
-    "ConstantPool": 0x8,
-    "HandlerTable": 0xC,
-    "SourcePositionTable": 0x10,
-    "FrameSize": 0x14,
-    "ParameterSize": 0x18,
-    "IncomingNewTargetOrGeneratorRegister": 0x1C,
-    "OsrLoopNestingLevel": 0x20,
-    "BytecodeAge": 0x21,
-    "Value": 0x22,
 }
 
 function printable(Byte) {
@@ -377,32 +360,11 @@ class __JSFunction {
     }
 }
 
-class __JSByteCodeArray {
-    constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Length = new __JSValue(read_u32(Addr + JSByteCodeArrayFieldsNameToOffset["Length"]));
-        this._Bytecodes = [];
-
-        for (let Index = 0; Index < this._Length.Payload; Index++) {
-            var bytecode = host.memory.readMemoryValues(Addr + JSByteCodeArrayFieldsNameToOffset["Value"] + Index, 1, 1);
-            this._Bytecodes.push(bytecode);
-        }
-    }
-
-    Display() {
-        log("ObjType: JSByteCodeArray");
-        log("ByteCodeLength: " + this._Length.Payload);
-        log("ByteCode: " + this._Bytecodes);
-    }
-}
-
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "ONE_BYTE_STRING_TYPE": __JSString,
     "JS_FUNCTION_TYPE": __JSFunction,
-    "BYTECODE_ARRAY_TYPE": __JSByteCodeArray,
 };
 
 class __JSObject {
