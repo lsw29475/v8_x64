@@ -14,6 +14,7 @@ const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
     40: "ONE_BYTE_STRING_TYPE",
+    66: "HEAP_NUMBER_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
     1059: "JS_ARRAY_TYPE",
     2060: "JS_FUNCTION_TYPE",
@@ -135,6 +136,12 @@ const JSSharedFunctionInfoFieldsNameToOffset = {
     "FunctionLiteralId": 0x20,
     "UniqueId": 0x24,
 }
+
+const JSHeapNumberFieldsNameToOffset = {
+    "Map": 0,
+    "ValueLow": 4,
+    "ValueHigh": 8,
+};
 
 function printable(Byte) {
     return Byte >= 0x20 && Byte <= 0x7e;
@@ -360,11 +367,26 @@ class __JSFunction {
     }
 }
 
+class __JSHeapNumber {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._ValueLow = read_u32(Addr + JSHeapNumberFieldsNameToOffset["ValueLow"])
+        this._ValueHigh = read_u32(Addr + JSHeapNumberFieldsNameToOffset["ValueHigh"])
+    }
+
+    Display() {
+        log("ObjType: HeapNumber");
+        log("HeapNumber High Part: " + this._ValueHigh.toString(16))
+        log("HeapNumber Low Part: " + this._ValueLow.toString(16))
+    }
+}
+
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "ONE_BYTE_STRING_TYPE": __JSString,
     "JS_FUNCTION_TYPE": __JSFunction,
+    "HEAP_NUMBER_TYPE": __JSHeapNumber,
 };
 
 class __JSObject {
