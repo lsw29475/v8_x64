@@ -10,14 +10,18 @@ const CodeKindEncodingMask = host.Int64(0xF);
 const TypeName = ["SMI"];
 
 //instance-types-tq.h
+//instance-type.h
+//v8heapconst.py
 const MapInstanceTypeToName = {
     0: "INTERNALIZED_STRING_TYPE",
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
+    26: "UNCACHED_EXTERNAL_ONE_BYTE_INTERNALIZED_STRING_TYPE",
     40: "ONE_BYTE_STRING_TYPE",
     66: "HEAP_NUMBER_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
-    1059: "JS_ARRAY_TYPE",
-    2060: "JS_FUNCTION_TYPE",
+    1057: "JS_OBJECT_TYPE",
+    1085: "JS_ARRAY_TYPE",
+    1059: "JS_FUNCTION_TYPE",
 }
 
 const CodeKindToName = {
@@ -53,6 +57,24 @@ const MapFieldsNameToOffset = {
     "DependentCode": 0x1C,
     "PrototypeValidityCell": 0x20,
     "TransitionsOrPrototypeInfo": 0x24,
+}
+
+const LookupIteratorConfigurationValueToName = {
+    1: "OWN/kInterceptor",
+    2: "PROTOTYPE_CHAIN_SKIP_INTERCEPTOR/kPrototypeChain",
+    0: "OWN_SKIP_INTERCEPTOR",
+    3: "kPrototypeChain | kInterceptor",
+}
+
+const LookIteratorStateValueToName = {
+    0: "ACCESS_CHECK",
+    1: "INTEGER_INDEXED_EXOTIC",
+    2: "INTERCEPTOR/BEFORE_PROPERTY",
+    3: "JSPROXY",
+    4: "NOT_FOUND",
+    5: "ACCESSOR",
+    6: "DATA",
+    7: "TRANSITION",
 }
 
 const JSArrayFieldsNameToOffset = {
@@ -143,6 +165,12 @@ const JSHeapNumberFieldsNameToOffset = {
     "ValueHigh": 8,
 };
 
+const LookupIteratorObjectNameToOffset = {
+    "configuration_": 0,
+    "state_": 4,
+    "has_property_": 8,
+}
+
 function printable(Byte) {
     return Byte >= 0x20 && Byte <= 0x7e;
 }
@@ -196,6 +224,15 @@ function read_u16(Addr) {
     return Value;
 }
 
+function read_u8(Addr) {
+    let Value = 0;
+    try {
+        Value = host.memory.readMemoryValues(Addr, 1, 1)[0];
+    } catch (err) {
+    }
+    return Value;
+}
+
 class __JSValue {
     constructor(Value) {
         this._Value = Value;
@@ -205,8 +242,7 @@ class __JSValue {
     get Payload() {
         if (this._IsSmi) {
             return this._Value.bitwiseShiftRight(PointerTag);
-        }
-        else {
+        } else {
             return this._Value = fix_v8addr(this._Value);
         }
     }
@@ -214,8 +250,7 @@ class __JSValue {
     get Tag() {
         if (this._IsSmi) {
             return "SMI";
-        }
-        else {
+        } else {
             return "Pointer";
         }
     }
@@ -226,6 +261,12 @@ class __JSMap {
         this._MetaMap = read_u32(Addr + MapFieldsNameToOffset["MetaMap"]);
         this._InstanceSize = read_u32(Addr + MapFieldsNameToOffset["InstanceSize"]);
         this._InstanceType = read_u16(Addr + MapFieldsNameToOffset["InstanceType"]);
+        this._BitField = read_u8(Addr + MapFieldsNameToOffset["BitField"]);
+    }
+
+    Display() {
+        log("InstanceType: " + this._InstanceType.toString(16));
+        log("BitField: " + this._BitField.toString(16));
     }
 }
 
@@ -244,8 +285,7 @@ class __JSFixedArrayBase {
 
             if (Value.Tag == "SMI") {
                 Content.push(Value.Payload);
-            }
-            else {
+            } else {
                 Content.push(this._Base + Value.Payload);
             }
         }
@@ -385,6 +425,7 @@ const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "ONE_BYTE_STRING_TYPE": __JSString,
+    "UNCACHED_EXTERNAL_ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "JS_FUNCTION_TYPE": __JSFunction,
     "HEAP_NUMBER_TYPE": __JSHeapNumber,
 };
@@ -408,10 +449,25 @@ class __JSObject {
     Display() {
         if (this._Value.Tag == "SMI") {
             log("SMI: " + this._Value.Payload);
-        }
-        else {
+        } else {
             this._ObjectFields.Display();
         }
+    }
+}
+
+class __LookupIteratorObject {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._configuration = read_u32(Addr + LookupIteratorObjectNameToOffset["configuration_"]);
+        this._state = read_u32(Addr + LookupIteratorObjectNameToOffset["state_"]);
+        this._has_property = read_u8(Addr + LookupIteratorObjectNameToOffset["has_property_"]) == 0 ? false : true;
+    }
+
+    Display() {
+        log("Addr: " + this._Addr.toString(16));
+        log("configuration_: " + LookupIteratorConfigurationValueToName[this._configuration]);
+        log("state_: " + LookIteratorStateValueToName[this._state]);
+        log("has_property_: " + this._has_property.toString(16));
     }
 }
 
@@ -429,16 +485,38 @@ function v8dump_jsvalue(Value) {
     const JSValue = new __JSValue(Value);
     if (JSValue.Tag == "SMI") {
         log("SMI: " + JSValue.Payload);
-    }
-    else {
+    } else {
         log("Pointer: ");
         v8dump_jsobject(JSValue.Payload);
+    }
+}
+
+function v8dump_lookupiterator(Value) {
+    if (Value == undefined) {
+        log("!v8dump_lookupiterator <lookupiterator object addr");
+    } else {
+        log("LookupIteratorObject: ");
+        const LookupIteratorObject = new __LookupIteratorObject(Value);
+        LookupIteratorObject.Display();
+    }
+}
+
+function v8dump_jsmap(Value) {
+    if (Value == undefined) {
+        log("!v8dump_jsmap <jsmap object addr");
+    } else {
+        const Addr = new __JSValue(Value);
+        const MapObject = new __JSMap(Addr.Payload);
+
+        MapObject.Display();
     }
 }
 
 function initializeScript() {
     return [
         new host.apiVersionSupport(1, 3),
-        new host.functionAlias(v8dump_jsvalue, "v8dump_jsvalue")
+        new host.functionAlias(v8dump_jsvalue, "v8dump_jsvalue"),
+        new host.functionAlias(v8dump_lookupiterator, "v8dump_lookupiterator"),
+        new host.functionAlias(v8dump_jsmap, "v8dump_jsmap")
     ];
 }
