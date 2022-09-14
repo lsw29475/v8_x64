@@ -2,9 +2,19 @@
 
 const PointerTag = host.Int64(0x1);
 const PointerBaseAnd = host.Int64(0xFFFFFFFF00000000);
+//JSString
 const StringRepresentationAndEncodingMask = host.Int64(0xF);
 const SeqOneByteStringTag = host.Int64(0x8);
 const SeqTwoByteStringTag = host.Int64(0x0);
+const ExternalOneByteStringTag = host.Int64(0xA);
+const ExternalTwoByteStringTag = host.Int64(0x2);
+const SliceOneByteStringTag = host.Int64(0xB);
+const SliceTwoByteStringTag = host.Int64(0x3);
+const ConsOneByteStringTag = host.Int64(0x9);
+const ConsTwoByteStringTag = host.Int64(0x1);
+const ThinOneByteStringTag = host.Int64(0xD);
+const ThinTwoByteStringTag = host.Int64(0x5);
+
 const CodeKindEncodingMask = host.Int64(0xF);
 
 const TypeName = ["SMI"];
@@ -330,10 +340,32 @@ class __JSString {
         if (this._Type == SeqOneByteStringTag) {
             this._String = Array.from(host.memory.readMemoryValues(this._Addr + JSStringFieldsNameToOffset["Values"], this._Length, 1)).map(p => byte_to_str(p)).join("");
         }
+        else if (this._Type == SeqTwoByteStringTag) {
+
+        }
+        else if (this._Type == ExternalOneByteStringTag) {
+
+        }
+        else if (this._Type == ExternalTwoByteStringTag) {
+
+        }
+        else if (this._Type == SliceOneByteStringTag) {
+
+        }
+        else if (this._Type == SliceTwoByteStringTag) {
+
+        }
+        else if (this._Type == ConsOneByteStringTag) {
+
+        }
+        else if (this._Type == ConsTwoByteStringTag) {
+
+        }
     }
 
     Display() {
         log("ObjType: JSString");
+        log("JSString Type: " + this._Type.toString(16));
         log("Data: " + this._String);
     }
 }
