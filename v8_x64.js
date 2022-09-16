@@ -15,9 +15,38 @@ const ConsTwoByteStringTag = host.Int64(0x1);
 const ThinOneByteStringTag = host.Int64(0xD);
 const ThinTwoByteStringTag = host.Int64(0x5);
 
+const NameRawHashFieldMask = host.Int64(0x3);
+
 const CodeKindEncodingMask = host.Int64(0xF);
 
 const TypeName = ["SMI"];
+
+//JSString
+const NameRawHashFieldEncodeToName = {
+    0: "kIntegerIndex",
+    1: "kForwardingIndex",
+    2: "kHash",
+    3: "kEmpty",
+}
+
+//LookupIterator
+const LookupIteratorConfigurationValueToName = {
+    1: "OWN/kInterceptor",
+    2: "PROTOTYPE_CHAIN_SKIP_INTERCEPTOR/kPrototypeChain",
+    0: "OWN_SKIP_INTERCEPTOR",
+    3: "kPrototypeChain | kInterceptor",
+}
+
+const LookIteratorStateValueToName = {
+    0: "ACCESS_CHECK",
+    1: "INTEGER_INDEXED_EXOTIC",
+    2: "INTERCEPTOR/BEFORE_PROPERTY",
+    3: "JSPROXY",
+    4: "NOT_FOUND",
+    5: "ACCESSOR",
+    6: "DATA",
+    7: "TRANSITION",
+}
 
 //instance-types-tq.h
 //instance-type.h
@@ -67,24 +96,6 @@ const MapFieldsNameToOffset = {
     "DependentCode": 0x1C,
     "PrototypeValidityCell": 0x20,
     "TransitionsOrPrototypeInfo": 0x24,
-}
-
-const LookupIteratorConfigurationValueToName = {
-    1: "OWN/kInterceptor",
-    2: "PROTOTYPE_CHAIN_SKIP_INTERCEPTOR/kPrototypeChain",
-    0: "OWN_SKIP_INTERCEPTOR",
-    3: "kPrototypeChain | kInterceptor",
-}
-
-const LookIteratorStateValueToName = {
-    0: "ACCESS_CHECK",
-    1: "INTEGER_INDEXED_EXOTIC",
-    2: "INTERCEPTOR/BEFORE_PROPERTY",
-    3: "JSPROXY",
-    4: "NOT_FOUND",
-    5: "ACCESSOR",
-    6: "DATA",
-    7: "TRANSITION",
 }
 
 const JSArrayFieldsNameToOffset = {
@@ -334,8 +345,10 @@ class __JSString {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Map = new __JSMap(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
+        this._RawHash = read_u32(Addr + JSStringFieldsNameToOffset["RawHash"])
         this._Length = read_u32(Addr + JSStringFieldsNameToOffset["Length"]);
         this._Type = this._Map._InstanceType.bitwiseAnd(StringRepresentationAndEncodingMask);
+        this._NameType = this._RawHash.bitwiseAnd(NameRawHashFieldMask);
 
         if (this._Type == SeqOneByteStringTag) {
             this._String = Array.from(host.memory.readMemoryValues(this._Addr + JSStringFieldsNameToOffset["Values"], this._Length, 1)).map(p => byte_to_str(p)).join("");
@@ -366,6 +379,7 @@ class __JSString {
     Display() {
         log("ObjType: JSString");
         log("JSString Type: " + this._Type.toString(16));
+        log("RawHash: 0x" + this._RawHash.toString(16) + " Type: " + NameRawHashFieldEncodeToName[Number(this._NameType)]);
         log("Data: " + this._String);
     }
 }
