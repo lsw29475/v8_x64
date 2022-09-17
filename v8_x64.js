@@ -29,6 +29,19 @@ const NameRawHashFieldEncodeToName = {
     3: "kEmpty",
 }
 
+const JSStringTypeToName = {
+    8: "SeqOneByteStringTag",
+    0: "SeqTwoByteStringTag",
+    0xA: "ExternalOneByteStringTag",
+    2: "ExternalTwoByteStringTag",
+    0xB: "SliceOneByteStringTag",
+    3: "SliceTwoByteStringTag",
+    9: "ConsOneByteStringTag",
+    1: "ConsTwoByteStringTag",
+    0xD: "ThinOneByteStringTag",
+    5: "ThinTwoByteStringTag",
+}
+
 //LookupIterator
 const LookupIteratorConfigurationValueToName = {
     1: "OWN/kInterceptor",
@@ -56,6 +69,10 @@ const MapInstanceTypeToName = {
     8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
     26: "UNCACHED_EXTERNAL_ONE_BYTE_INTERNALIZED_STRING_TYPE",
     40: "ONE_BYTE_STRING_TYPE",
+    41: "CONS_ONE_BYTE_STRING_TYPE",
+    42: "EXTERNAL_ONE_BYTE_STRING_TYPE",
+    43: "SLICED_ONE_BYTE_STRING_TYPE",
+    45: "THIN_ONE_BYTE_STRING_TYPE",
     66: "HEAP_NUMBER_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
     1057: "JS_OBJECT_TYPE",
@@ -115,7 +132,17 @@ const JSStringFieldsNameToOffset = {
     "Map": 0,
     "RawHash": 4,
     "Length": 8,
+    //SeqString
     "Values": 0xC,
+    //ConsString
+    "First": 0xC,
+    "Second": 0x10,
+    //SliceString
+    "Parent": 0xC,
+    "Offset": 0x10,
+    //ExternalString
+    "Resource": 0xC,
+    "ResourceData": 0x10,
 }
 
 const JSFunctionFieldsNameToOffset = {
@@ -363,22 +390,30 @@ class __JSString {
 
         }
         else if (this._Type == SliceOneByteStringTag) {
-
+            this._Parent = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Parent"])).Payload);
+            this._Offset = read_u32(Addr + JSStringFieldsNameToOffset["Offset"]) / 2;
+            this._String = this._Parent._String.substring(this._Offset, this._Offset + this._Length);
         }
         else if (this._Type == SliceTwoByteStringTag) {
 
         }
         else if (this._Type == ConsOneByteStringTag) {
-
+            this._First = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["First"])).Payload);
+            this._Second = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Second"])).Payload);
+            this._String = this._First._String + this._Second._String;
         }
         else if (this._Type == ConsTwoByteStringTag) {
 
         }
     }
 
+    Data() {
+        return this._String;
+    }
+
     Display() {
         log("ObjType: JSString");
-        log("JSString Type: " + this._Type.toString(16));
+        log("JSString Type: " + this._Type.toString(16) + " Desc: " + JSStringTypeToName[Number(this._Type)]);
         log("RawHash: 0x" + this._RawHash.toString(16) + " Type: " + NameRawHashFieldEncodeToName[Number(this._NameType)]);
         log("Data: " + this._String);
     }
@@ -469,9 +504,15 @@ class __JSHeapNumber {
 
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
+
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "ONE_BYTE_STRING_TYPE": __JSString,
     "UNCACHED_EXTERNAL_ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
+    "CONS_ONE_BYTE_STRING_TYPE": __JSString,
+    "EXTERNAL_ONE_BYTE_STRING_TYPE": __JSString,
+    "SLICED_ONE_BYTE_STRING_TYPE": __JSString,
+    "THIN_ONE_BYTE_STRING_TYPE": __JSString,
+
     "JS_FUNCTION_TYPE": __JSFunction,
     "HEAP_NUMBER_TYPE": __JSHeapNumber,
 };
