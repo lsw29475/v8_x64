@@ -75,6 +75,8 @@ const MapInstanceTypeToName = {
     45: "THIN_ONE_BYTE_STRING_TYPE",
     66: "HEAP_NUMBER_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
+    178: "FIXED_ARRAY_TYPE",
+    231: "DESCRIPTOR_ARRAY_TYPE",
     1057: "JS_OBJECT_TYPE",
     1085: "JS_ARRAY_TYPE",
     1059: "JS_FUNCTION_TYPE",
@@ -213,6 +215,22 @@ const JSHeapNumberFieldsNameToOffset = {
     "ValueHigh": 8,
 };
 
+const JSRegularObjectFieldsNameToOffset = {
+    "Map": 0,
+    "elements": 4,
+    "properties": 8,
+}
+
+const JSDescriptorArrayFieldsNameToOffset = {
+    "Map": 0,
+    "NumberOfAllDescriptors": 4,
+    "NumberOfDescriptors": 6,
+    "RawNumberOfMarkedDescriptors": 8,
+    "Filler16Bits": 0xA,
+    "EnumCache": 0xC,
+    "Descriptors": 0x10,
+}
+
 const LookupIteratorObjectNameToOffset = {
     "configuration_": 0,
     "state_": 4,
@@ -304,17 +322,38 @@ class __JSValue {
     }
 }
 
+class __JSDescriptorArray {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._NumberOfDescriptors = read_u16(Addr + JSDescriptorArrayFieldsNameToOffset["NumberOfDescriptors"]);
+    }
+
+    Display() {
+        let Key = 0;
+        log("NumberOfDescriptors: " + this._NumberOfDescriptors.toString(16));
+        for (let Idx = 0; Idx < this._NumberOfDescriptors; Idx++) {
+            Key = new __JSObject(this._Base + read_u32(Addr + JSDescriptorArrayFieldsNameToOffset["Descriptors"] + Idx * 0xC));
+            Key.Display();
+        }
+    }
+}
+
 class __JSMap {
     constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._MetaMap = read_u32(Addr + MapFieldsNameToOffset["MetaMap"]);
         this._InstanceSize = read_u32(Addr + MapFieldsNameToOffset["InstanceSize"]);
         this._InstanceType = read_u16(Addr + MapFieldsNameToOffset["InstanceType"]);
         this._BitField = read_u8(Addr + MapFieldsNameToOffset["BitField"]);
+        this._InstanceDescriptor = new __JSDescriptorArray(this._Base + read_u32(Addr + MapFieldsNameToOffset["InstanceDescriptors"]));
     }
 
     Display() {
         log("InstanceType: " + this._InstanceType.toString(16));
         log("BitField: " + this._BitField.toString(16));
+        log("Descriptor: " + this._InstanceDescriptor.Display());
     }
 }
 
@@ -502,8 +541,16 @@ class __JSHeapNumber {
     }
 }
 
+class __JSRegularObject {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Elements = read_u32(Addr)
+    }
+}
+
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
+    "DESCRIPTOR_ARRAY_TYPE": __JSDescriptorArray,
 
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
     "ONE_BYTE_STRING_TYPE": __JSString,
@@ -515,6 +562,8 @@ const MapInstanceNameToObjectType = {
 
     "JS_FUNCTION_TYPE": __JSFunction,
     "HEAP_NUMBER_TYPE": __JSHeapNumber,
+
+    "JS_OBJECT_TYPE": __JSRegularObject,
 };
 
 class __JSObject {
