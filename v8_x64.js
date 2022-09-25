@@ -328,15 +328,21 @@ class __JSDescriptorArray {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._NumberOfDescriptors = read_u16(Addr + JSDescriptorArrayFieldsNameToOffset["NumberOfDescriptors"]);
+        this._PropertyNames = [];
+
+        for (let Idx = 0; Idx < this._NumberOfDescriptors; Idx++) {
+            let Key = new __JSString(new __JSValue(this._Base + read_u32(this._Addr + JSDescriptorArrayFieldsNameToOffset["Descriptors"] + Idx * 0xC)).Payload);
+            this._PropertyNames.push(Key._String);
+        }
+    }
+
+    Data() {
+        return this._PropertyNames;
     }
 
     Display() {
-        let Key = 0;
         log("NumberOfDescriptors: " + this._NumberOfDescriptors.toString(16));
-        for (let Idx = 0; Idx < this._NumberOfDescriptors; Idx++) {
-            Key = new __JSObject(new __JSValue(this._Base + read_u32(this._Addr + JSDescriptorArrayFieldsNameToOffset["Descriptors"] + Idx * 0xC)).Payload);
-            Key.Display();
-        }
+        log("Properties: " + this._PropertyNames);
     }
 }
 
@@ -549,14 +555,15 @@ class __JSRegularObject {
         this._Map = new __JSMap(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["Map"])).Payload);
         this._Elements = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["elements"]);
         this._Properties = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["properties"]);
+        this._Properties = this._Map._InstanceDescriptor.Data();
     }
 
     Display() {
-        this._Map.Display();
         for (let Idx = 0; Idx < this._Map._InstanceDescriptor._NumberOfDescriptors; Idx++) {
             let Value = new __JSObject(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["InObject"] + Idx * 4)).Payload);
-            Value.Display();
+            log(this._Properties[Idx] + " : " + Value.Display());
         }
+
     }
 }
 
