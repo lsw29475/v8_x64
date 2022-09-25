@@ -217,8 +217,9 @@ const JSHeapNumberFieldsNameToOffset = {
 
 const JSRegularObjectFieldsNameToOffset = {
     "Map": 0,
-    "elements": 4,
-    "properties": 8,
+    "properties": 4,
+    "elements": 8,
+    "InObject": 0xC,
 }
 
 const JSDescriptorArrayFieldsNameToOffset = {
@@ -333,7 +334,7 @@ class __JSDescriptorArray {
         let Key = 0;
         log("NumberOfDescriptors: " + this._NumberOfDescriptors.toString(16));
         for (let Idx = 0; Idx < this._NumberOfDescriptors; Idx++) {
-            Key = new __JSObject(this._Base + read_u32(Addr + JSDescriptorArrayFieldsNameToOffset["Descriptors"] + Idx * 0xC));
+            Key = new __JSObject(new __JSValue(this._Base + read_u32(this._Addr + JSDescriptorArrayFieldsNameToOffset["Descriptors"] + Idx * 0xC)).Payload);
             Key.Display();
         }
     }
@@ -347,7 +348,7 @@ class __JSMap {
         this._InstanceSize = read_u32(Addr + MapFieldsNameToOffset["InstanceSize"]);
         this._InstanceType = read_u16(Addr + MapFieldsNameToOffset["InstanceType"]);
         this._BitField = read_u8(Addr + MapFieldsNameToOffset["BitField"]);
-        this._InstanceDescriptor = new __JSDescriptorArray(this._Base + read_u32(Addr + MapFieldsNameToOffset["InstanceDescriptors"]));
+        this._InstanceDescriptor = new __JSDescriptorArray(new __JSValue(this._Base + read_u32(Addr + MapFieldsNameToOffset["InstanceDescriptors"])).Payload);
     }
 
     Display() {
@@ -544,7 +545,18 @@ class __JSHeapNumber {
 class __JSRegularObject {
     constructor(Addr) {
         this._Addr = Addr;
-        this._Elements = read_u32(Addr)
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Map = new __JSMap(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["Map"])).Payload);
+        this._Elements = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["elements"]);
+        this._Properties = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["properties"]);
+    }
+
+    Display() {
+        this._Map.Display();
+        for (let Idx = 0; Idx < this._Map._InstanceDescriptor._NumberOfDescriptors; Idx++) {
+            let Value = new __JSObject(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["InObject"] + Idx * 4)).Payload);
+            Value.Display();
+        }
     }
 }
 
