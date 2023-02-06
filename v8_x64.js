@@ -75,11 +75,13 @@ const MapInstanceTypeToName = {
     45: "THIN_ONE_BYTE_STRING_TYPE",
     66: "HEAP_NUMBER_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
-    178: "FIXED_ARRAY_TYPE",
-    231: "DESCRIPTOR_ARRAY_TYPE",
+    176: "FIXED_ARRAY_TYPE",
+    228: "DESCRIPTOR_ARRAY_TYPE",
+    238: "CODE_TYPE",
     1057: "JS_OBJECT_TYPE",
-    1085: "JS_ARRAY_TYPE",
+    2106: "JS_ARRAY_TYPE",
     1059: "JS_FUNCTION_TYPE",
+    2060: "JS_TYPED_ARRAY_TYPE",
 }
 
 const CodeKindToName = {
@@ -413,6 +415,13 @@ class __JSArray {
     }
 }
 
+class __JSTypedArray {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+    }
+}
+
 class __JSString {
     constructor(Addr) {
         this._Addr = Addr;
@@ -512,6 +521,10 @@ class __JSCode {
         this._Flags = read_u32(Addr + JSCodeFieldsNameToOffset["Flags"]);
         this._Kind = Number(this._Flags.bitwiseAnd(CodeKindEncodingMask));
     }
+
+    Display() {
+        log("FunctionKind: " + CodeKindToName[this._Kind]);
+    }
 }
 
 class __JSFunction {
@@ -569,6 +582,7 @@ class __JSRegularObject {
 
 const MapInstanceNameToObjectType = {
     "JS_ARRAY_TYPE": __JSArray,
+    "JS_TYPED_ARRAY_TYPE": __JSTypedArray,
     "DESCRIPTOR_ARRAY_TYPE": __JSDescriptorArray,
 
     "ONE_BYTE_INTERNALIZED_STRING_TYPE": __JSString,
@@ -578,6 +592,7 @@ const MapInstanceNameToObjectType = {
     "EXTERNAL_ONE_BYTE_STRING_TYPE": __JSString,
     "SLICED_ONE_BYTE_STRING_TYPE": __JSString,
     "THIN_ONE_BYTE_STRING_TYPE": __JSString,
+    "CODE_TYPE": __JSCode,
 
     "JS_FUNCTION_TYPE": __JSFunction,
     "HEAP_NUMBER_TYPE": __JSHeapNumber,
@@ -632,6 +647,7 @@ function v8dump_jsobject(Addr) {
     JSObject.Display();
 }
 
+//打印值信息
 function v8dump_jsvalue(Value) {
     if (Value == undefined) {
         log("!v8dump_jsvalue <jsvalue object addr>");
@@ -656,6 +672,7 @@ function v8dump_lookupiterator(Value) {
     }
 }
 
+//打印map信息
 function v8dump_jsmap(Value) {
     if (Value == undefined) {
         log("!v8dump_jsmap <jsmap object addr");
