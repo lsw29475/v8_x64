@@ -75,13 +75,14 @@ const MapInstanceTypeToName = {
     45: "THIN_ONE_BYTE_STRING_TYPE",
     66: "HEAP_NUMBER_TYPE",
     166: "FEEDBACK_VECTOR_TYPE",
-    176: "FIXED_ARRAY_TYPE",
     228: "DESCRIPTOR_ARRAY_TYPE",
     238: "CODE_TYPE",
     1057: "JS_OBJECT_TYPE",
-    2106: "JS_ARRAY_TYPE",
     1059: "JS_FUNCTION_TYPE",
-    2060: "JS_TYPED_ARRAY_TYPE",
+    176: "FIXED_ARRAY_TYPE",
+    2106: "JS_ARRAY_TYPE",
+    1080: "JS_TYPED_ARRAY_TYPE",
+    2090: "JS_ARRAY_BUFFER_TYPE",
 }
 
 const CodeKindToName = {
@@ -119,6 +120,12 @@ const MapFieldsNameToOffset = {
     "TransitionsOrPrototypeInfo": 0x24,
 }
 
+const JSFixedArrayBaseFieldsNameToOffset = {
+    "Map": 0,
+    "Length": 4,
+    "Values": 8,
+}
+
 const JSArrayFieldsNameToOffset = {
     "Map": 0,
     "PropertiesOrHash": 4,
@@ -126,10 +133,25 @@ const JSArrayFieldsNameToOffset = {
     "Length": 0xC,
 }
 
-const JSFixedArrayBaseFieldsNameToOffset = {
+const JSArrayBufferViewFieldsNameToOffset = {
     "Map": 0,
-    "Length": 4,
-    "Values": 8,
+    "PropertiesOrHash": 4,
+    "Elements": 8,
+    "Buffer": 0xC,
+    "ByteOffset": 0x10,
+    "ByteLengthOffset": 0x18,
+}
+
+const JSTypedArrayFieldsNameToOffset = {
+    "Map": 0,
+    "PropertiesOrHash": 4,
+    "Elements": 8,
+    "Buffer": 0xC,
+    "ByteOffset": 0x10,
+    "ByteLengthOffset": 0x18,
+    "Length": 0x20,
+    "ExternalPointerOffset": 0x28,
+    "BasePointerOffset": 0x30,
 }
 
 const JSStringFieldsNameToOffset = {
@@ -266,6 +288,7 @@ function fix_v8addr(Addr) {
     return Addr - Addr.bitwiseAnd(PointerTag);
 }
 
+//从内存中读取数据
 function read_u64(Addr) {
     let Value = 0;
     try {
@@ -302,12 +325,14 @@ function read_u8(Addr) {
     return Value;
 }
 
+//获取指定值，判断位压缩指针或是SMI
 class __JSValue {
     constructor(Value) {
         this._Value = Value;
         this._IsSmi = Value.bitwiseAnd(PointerTag) == 0 ? true : false;
     }
 
+    //返回SMI，或是压缩指针真实的地址
     get Payload() {
         if (this._IsSmi) {
             return this._Value.bitwiseShiftRight(PointerTag);
@@ -360,7 +385,7 @@ class __JSMap {
     }
 
     Display() {
-        log("InstanceType: " + this._InstanceType.toString(16));
+        log("InstanceType: 0x" + this._InstanceType.toString(16));
         log("BitField: " + this._BitField.toString(16));
         log("Descriptor: " + this._InstanceDescriptor.Display());
     }
@@ -415,10 +440,34 @@ class __JSArray {
     }
 }
 
-class __JSTypedArray {
+class __JSArrayBufferView {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Map = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Map"])).Payload;
+        this._PropertiesOrHash = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["PropertiesOrHash"])).Payload;
+        this._Elements = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Elements"])).Payload;
+        this._Buffer = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Buffer"])).Payload;
+        this._ByteOffset = new __JSValue(read_u64(Addr + JSArrayBufferViewFieldsNameToOffset["ByteOffset"])).Payload;
+        this._ByteLengthOffset = new __JSValue(read_u64(Addr + JSArrayBufferViewFieldsNameToOffset["ByteLengthOffset"])).Payload;
+    }
+}
+
+class __JSTypedArray extends __JSArrayBufferView {
+    constructor(Addr) {
+        super(Addr);
+        this._Length = read_u64(Addr + JSTypedArrayFieldsNameToOffset["Length"]);
+        this._ExternalPointerOffset = read_u64(Addr + JSTypedArrayFieldsNameToOffset["ExternalPointerOffset"]);
+        this._BasePointerOffset = new __JSValue(read_u64(Addr + JSTypedArrayFieldsNameToOffset["BasePointerOffset"])).Payload;
+    }
+
+    Display() {
+        log("ObjType: JSTypedArray");
+        log("JSTypedArray.Map: " + this._Map.toString(16));
+        log("JSTypedArray.PropertiesOrHash: " + this._PropertiesOrHash.toString(16));
+        log("JSTypedArray.Elements: " + this._Elements.toString(16));
+        log("JSTypedArray:Length: 0x" + this._Length.toString(16));
+        log("JSTypedArrayExternalPointerOffset: " + this._ExternalPointerOffset.toString(16));
     }
 }
 
