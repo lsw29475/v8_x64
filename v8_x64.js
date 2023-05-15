@@ -154,16 +154,30 @@ const MapFieldsNameToOffset = {
     "InObjectPropertiesStartOrConstructorFunctionIndex": 5,
     "UsedOrUnusedInstanceSize": 6,
     "VisitorId": 7,
+    //根据InstanceType来判断这个Map所属对象的具体类型
     "InstanceType": 8,
     "BitField": 0xA,
     "BitField2": 0xB,
     "BitField3": 0xC,
     "Prototype": 0x10,
     "ConstructorOrBackPointerOrNativeContext": 0x14,
+    //InstanceDescriptors保存了对象的各种属性名以及属性的类型
     "InstanceDescriptors": 0x18,
     "DependentCode": 0x1C,
     "PrototypeValidityCell": 0x20,
     "TransitionsOrPrototypeInfo": 0x24,
+}
+
+const JSDescriptorArrayFieldsNameToOffset = {
+    "Map": 0,
+    //NumberOfAllDescriptors代表属性个数
+    "NumberOfAllDescriptors": 4,
+    "NumberOfDescriptors": 6,
+    "RawNumberOfMarkedDescriptors": 8,
+    "Filler16Bits": 0xA,
+    "EnumCache": 0xC,
+    //Descriptors开始为属性名
+    "Descriptors": 0x10,
 }
 
 const JSFixedArrayBaseFieldsNameToOffset = {
@@ -292,16 +306,6 @@ const JSRegularObjectFieldsNameToOffset = {
     "InObject": 0xC,
 }
 
-const JSDescriptorArrayFieldsNameToOffset = {
-    "Map": 0,
-    "NumberOfAllDescriptors": 4,
-    "NumberOfDescriptors": 6,
-    "RawNumberOfMarkedDescriptors": 8,
-    "Filler16Bits": 0xA,
-    "EnumCache": 0xC,
-    "Descriptors": 0x10,
-}
-
 const LookupIteratorObjectNameToOffset = {
     "configuration_": 0,
     "state_": 4,
@@ -421,7 +425,7 @@ class __JSDescriptorArray {
     }
 }
 
-class __JSMap {
+class __Map {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
@@ -436,6 +440,28 @@ class __JSMap {
         log("InstanceType: 0x" + this._InstanceType.toString(16));
         log("BitField: " + this._BitField.toString(16));
         log("Descriptor: " + this._InstanceDescriptor.Display());
+    }
+}
+
+class __JSHeapObject {
+    constructor(Addr) {
+        this._Addr = Addr;
+        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        this._Map = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Map"])).Payload;
+    }
+}
+
+class __JSReceiver extends __JSHeapObject {
+    constructor(Addr) {
+        super(Addr);
+        this._PropertiesOrHash = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["PropertiesOrHash"])).Payload;
+    }
+}
+
+class __JSObject extends __JSReceiver {
+    constructor(Addr) {
+        super(Addr);
+        this._Elements = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Elements"])).Payload;
     }
 }
 
@@ -466,15 +492,10 @@ class __JSFixedArrayBase {
     }
 }
 
-class __JSArray {
+class __JSArray extends __JSObject{
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Map"])).Payload;
-        this._PropertiesOrHash = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["PropertiesOrHash"])).Payload;
-        this._Elements = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Elements"])).Payload;
+        super(Addr);
         this._Length = new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Length"]));
-
         this._ElementsData = new __JSFixedArrayBase(this._Elements);
     }
 
@@ -490,11 +511,7 @@ class __JSArray {
 
 class __JSArrayBufferView {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Map"])).Payload;
-        this._PropertiesOrHash = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["PropertiesOrHash"])).Payload;
-        this._Elements = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Elements"])).Payload;
+        super(Addr);
         this._Buffer = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Buffer"])).Payload;
         this._ByteOffset = new __JSValue(read_u64(Addr + JSArrayBufferViewFieldsNameToOffset["ByteOffset"])).Payload;
         this._ByteLengthOffset = new __JSValue(read_u64(Addr + JSArrayBufferViewFieldsNameToOffset["ByteLengthOffset"])).Payload;
@@ -523,7 +540,7 @@ class __JSString {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = new __JSMap(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
+        this._Map = new __Map(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
         this._RawHash = read_u32(Addr + JSStringFieldsNameToOffset["RawHash"])
         this._Length = read_u32(Addr + JSStringFieldsNameToOffset["Length"]);
         this._Type = this._Map._InstanceType.bitwiseAnd(StringRepresentationAndEncodingMask);
@@ -601,7 +618,7 @@ class __JSFeedbackCell {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
         this._Value = read_u32(Addr + JSFeedbackCellFieldsNameToOffset["Value"]);
-        this._ValueMap = new __JSMap(this._Base + read_u32(new __JSValue(this._Base + this._Value).Payload));
+        this._ValueMap = new __Map(this._Base + read_u32(new __JSValue(this._Base + this._Value).Payload));
         this._Has_vector = false;
 
         if (MapInstanceTypeToName[this._ValueMap._InstanceType] == "FEEDBACK_VECTOR_TYPE") {
@@ -662,7 +679,7 @@ class __JSRegularObject {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = new __JSMap(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["Map"])).Payload);
+        this._Map = new __Map(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["Map"])).Payload);
         this._Elements = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["elements"]);
         this._Properties = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["properties"]);
         this._Properties = this._Map._InstanceDescriptor.Data();
@@ -689,15 +706,15 @@ const MapInstanceNameToObjectType = {
     "EXTERNAL_ONE_BYTE_STRING_TYPE": __JSString,
     "SLICED_ONE_BYTE_STRING_TYPE": __JSString,
     "THIN_ONE_BYTE_STRING_TYPE": __JSString,
-    "CODE_TYPE": __JSCode,
 
+    "CODE_TYPE": __JSCode,
     "JS_FUNCTION_TYPE": __JSFunction,
     "HEAP_NUMBER_TYPE": __JSHeapNumber,
 
     "JS_OBJECT_TYPE": __JSRegularObject,
 };
 
-class __JSObject {
+class __Object {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
@@ -707,7 +724,7 @@ class __JSObject {
             return;
         }
 
-        this._Map = new __JSMap(this._Base + this._Value.Payload);
+        this._Map = new __Map(this._Base + this._Value.Payload);
         if (MapInstanceTypeToName.hasOwnProperty(this._Map._InstanceType)) {
             this._ObjectFields = new MapInstanceNameToObjectType[MapInstanceTypeToName[this._Map._InstanceType]](Addr);
         }
@@ -739,7 +756,7 @@ class __LookupIteratorObject {
 }
 
 function v8dump_jsobject(Addr) {
-    const JSObject = new __JSObject(Addr);
+    const JSObject = new __Object(Addr);
 
     JSObject.Display();
 }
@@ -776,7 +793,7 @@ function v8dump_jsmap(Value) {
         log("!v8dump_jsmap <jsmap object addr>");
     } else {
         const Addr = new __JSValue(Value);
-        const MapObject = new __JSMap(Addr.Payload);
+        const MapObject = new __Map(Addr.Payload);
 
         MapObject.Display();
     }
