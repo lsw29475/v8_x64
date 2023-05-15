@@ -21,6 +21,76 @@ const CodeKindEncodingMask = host.Int64(0xF);
 
 const TypeName = ["SMI"];
 
+class PythonDictionary {
+    constructor() {
+        this.dictionary = {};
+    }
+
+    add(key, value) {
+        this.dictionary[key] = value;
+    }
+
+    get(key) {
+        return this.dictionary[key];
+    }
+}
+
+function readPythonFile(filePath) {
+    const fileContentArray = host.namespace.Debugger.Utility.FileSystem.CreateTextReader(filePath).ReadLineContents();
+    let fileContent = "";
+
+    for (let line of fileContentArray) {
+        fileContent += line + "\n";
+    }
+
+    const regex = /INSTANCE_TYPES\s*=\s*{([\s\S]*?)}/;
+    const match = fileContent.match(regex);
+
+    if (match && match[1]) {
+        const dictContent = match[1];
+        const lines = dictContent.split(/\r?\n/);
+        const pythonDict = new PythonDictionary();
+
+        lines.forEach((line) => {
+            const keyValueRegex = /^\s*(\d+)\s*:\s*"(.+)"\s*,?$/;
+            const keyValueMatch = line.match(keyValueRegex);
+
+            if (keyValueMatch && keyValueMatch[1] && keyValueMatch[2]) {
+                const key = parseInt(keyValueMatch[1]);
+                const value = keyValueMatch[2];
+                pythonDict.add(key, value);
+            }
+        });
+
+        return pythonDict;
+    }
+
+    return null;
+}
+
+function formatToJavaScriptDictionary(pythonDict) {
+    const jsDict = {};
+
+    for (const key in pythonDict.dictionary) {
+        if (pythonDict.dictionary.hasOwnProperty(key)) {
+            jsDict[key] = pythonDict.dictionary[key];
+        }
+    }
+
+    return jsDict;
+}
+
+let MapInstanceTypeToName = {};
+
+function generateMapInstanceTypeToName() {
+    const filePath = "I:\\ProejctInfo\\v8\\v8\\v8\\out.gn\\x64.debug\\gen\\tools\\debug_helper\\v8heapconst.py";
+    const pythonDict = readPythonFile(filePath);
+
+    if (pythonDict) {
+        MapInstanceTypeToName = formatToJavaScriptDictionary(pythonDict);
+    }
+}
+
 //JSString
 const NameRawHashFieldEncodeToName = {
     0: "kIntegerIndex",
@@ -59,30 +129,6 @@ const LookIteratorStateValueToName = {
     5: "ACCESSOR",
     6: "DATA",
     7: "TRANSITION",
-}
-
-//instance-types-tq.h
-//instance-type.h
-//v8heapconst.py
-const MapInstanceTypeToName = {
-    0: "INTERNALIZED_STRING_TYPE",
-    8: "ONE_BYTE_INTERNALIZED_STRING_TYPE",
-    26: "UNCACHED_EXTERNAL_ONE_BYTE_INTERNALIZED_STRING_TYPE",
-    40: "ONE_BYTE_STRING_TYPE",
-    41: "CONS_ONE_BYTE_STRING_TYPE",
-    42: "EXTERNAL_ONE_BYTE_STRING_TYPE",
-    43: "SLICED_ONE_BYTE_STRING_TYPE",
-    45: "THIN_ONE_BYTE_STRING_TYPE",
-    66: "HEAP_NUMBER_TYPE",
-    166: "FEEDBACK_VECTOR_TYPE",
-    228: "DESCRIPTOR_ARRAY_TYPE",
-    238: "CODE_TYPE",
-    1057: "JS_OBJECT_TYPE",
-    1059: "JS_FUNCTION_TYPE",
-    176: "FIXED_ARRAY_TYPE",
-    2106: "JS_ARRAY_TYPE",
-    1080: "JS_TYPED_ARRAY_TYPE",
-    2090: "JS_ARRAY_BUFFER_TYPE",
 }
 
 const CodeKindToName = {
@@ -335,8 +381,10 @@ class __JSValue {
     //返回SMI，或是压缩指针真实的地址
     get Payload() {
         if (this._IsSmi) {
+            //返回值
             return this._Value.bitwiseShiftRight(PointerTag);
         } else {
+            //返回压缩指针真实地址
             return this._Value = fix_v8addr(this._Value);
         }
     }
@@ -702,6 +750,7 @@ function v8dump_jsvalue(Value) {
         log("!v8dump_jsvalue <jsvalue object addr>");
     }
 
+    generateMapInstanceTypeToName();
     const JSValue = new __JSValue(Value);
     if (JSValue.Tag == "SMI") {
         log("SMI: " + JSValue.Payload);
@@ -713,7 +762,7 @@ function v8dump_jsvalue(Value) {
 
 function v8dump_lookupiterator(Value) {
     if (Value == undefined) {
-        log("!v8dump_lookupiterator <lookupiterator object addr");
+        log("!v8dump_lookupiterator <lookupiterator object addr>");
     } else {
         log("LookupIteratorObject: ");
         const LookupIteratorObject = new __LookupIteratorObject(Value);
@@ -724,7 +773,7 @@ function v8dump_lookupiterator(Value) {
 //打印map信息
 function v8dump_jsmap(Value) {
     if (Value == undefined) {
-        log("!v8dump_jsmap <jsmap object addr");
+        log("!v8dump_jsmap <jsmap object addr>");
     } else {
         const Addr = new __JSValue(Value);
         const MapObject = new __JSMap(Addr.Payload);
