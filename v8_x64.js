@@ -83,7 +83,7 @@ function formatToJavaScriptDictionary(pythonDict) {
 let MapInstanceTypeToName = {};
 
 function generateMapInstanceTypeToName() {
-    const filePath = "I:\\ProejctInfo\\v8\\v8\\v8\\out.gn\\x64.debug\\gen\\tools\\debug_helper\\v8heapconst.py";
+    const filePath = "G:\\v8\\v8\\v8\\out.gn\\x64.debug\\gen\\tools\\debug_helper\\v8heapconst.py";
     const pythonDict = readPythonFile(filePath);
 
     if (pythonDict) {
@@ -447,7 +447,7 @@ class __JSHeapObject {
     constructor(Addr) {
         this._Addr = Addr;
         this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Map"])).Payload;
+        this._Map = new __Map(this._Base + new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Map"])).Payload);
     }
 }
 
@@ -465,11 +465,9 @@ class __JSObject extends __JSReceiver {
     }
 }
 
-class __JSFixedArrayBase {
+class __JSFixedArrayBase extends __JSHeapObject{
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = this._Base + new __JSValue(read_u32(Addr + JSFixedArrayBaseFieldsNameToOffset["Map"])).Payload;
+        super(Addr);
         this._Length = new __JSValue(read_u32(Addr + JSFixedArrayBaseFieldsNameToOffset["Length"]));
     }
 
@@ -509,7 +507,7 @@ class __JSArray extends __JSObject{
     }
 }
 
-class __JSArrayBufferView {
+class __JSArrayBufferView extends __JSObject{
     constructor(Addr) {
         super(Addr);
         this._Buffer = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Buffer"])).Payload;
@@ -536,11 +534,9 @@ class __JSTypedArray extends __JSArrayBufferView {
     }
 }
 
-class __JSString {
+class __JSString extends __JSHeapObject{
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = new __Map(this._Base + new __JSValue(read_u32(Addr + JSStringFieldsNameToOffset["Map"])).Payload);
+        super(Addr);
         this._RawHash = read_u32(Addr + JSStringFieldsNameToOffset["RawHash"])
         this._Length = read_u32(Addr + JSStringFieldsNameToOffset["Length"]);
         this._Type = this._Map._InstanceType.bitwiseAnd(StringRepresentationAndEncodingMask);
