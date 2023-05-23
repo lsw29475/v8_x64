@@ -83,7 +83,7 @@ function formatToJavaScriptDictionary(pythonDict) {
 let MapInstanceTypeToName = {};
 
 function generateMapInstanceTypeToName() {
-    const filePath = "G:\\v8\\v8\\v8\\out.gn\\x64.debug\\gen\\tools\\debug_helper\\v8heapconst.py";
+    const filePath = "I:\\ProejctInfo\\v8\\v8\\v8\\out.gn\\x64.debug\\gen\\tools\\debug_helper\\v8heapconst.py";
     const pythonDict = readPythonFile(filePath);
 
     if (pythonDict) {
@@ -238,7 +238,7 @@ const JSFunctionFieldsNameToOffset = {
     "SharedFunctionInfo": 0xC,
     "Context": 0x10,
     "FeedbackCell": 0x14,
-    "Code": 0x18,
+    "CodeDataContainer": 0x18,
     "PrototypeOrInitialMap": 0x1C,
 }
 
@@ -263,18 +263,23 @@ const JSScriptFieldsNameToOffset = {
     "Source": 4,
 }
 
+const JSCodeDataContainerFieldsNameToOffset = {
+    "Map": 0,
+    "Code": 8,
+}
+
 const JSCodeFieldsNameToOffset = {
     "Map": 0,
     "RelocationInfo": 0x4,
     "DeoptimizationDataOrInterpreterData": 0x8,
     "PositionTable": 0xC,
     "CodeDataContainer": 0x10,
-    "InstructionSize": 0x14,
-    "MetadataSize": 0x18,
-    "Flags": 0x1C,
-    "BuiltinIdex": 0x20,
-    "InlinedBytecodeSize": 0x24,
-    "HandlerTableOffset": 0x28,
+    "InstructionSize": 0x18,
+    "MetadataSize": 0x1C,
+    "Flags": 0x20,
+    "BuiltinIdex": 0x24,
+    "InlinedBytecodeSize": 0x28,
+    "HandlerTableOffset": 0x2C,
 }
 
 const JSSharedFunctionInfoFieldsNameToOffset = {
@@ -465,7 +470,7 @@ class __JSObject extends __JSReceiver {
     }
 }
 
-class __JSFixedArrayBase extends __JSHeapObject{
+class __JSFixedArrayBase extends __JSHeapObject {
     constructor(Addr) {
         super(Addr);
         this._Length = new __JSValue(read_u32(Addr + JSFixedArrayBaseFieldsNameToOffset["Length"]));
@@ -490,7 +495,7 @@ class __JSFixedArrayBase extends __JSHeapObject{
     }
 }
 
-class __JSArray extends __JSObject{
+class __JSArray extends __JSObject {
     constructor(Addr) {
         super(Addr);
         this._Length = new __JSValue(read_u32(Addr + JSArrayFieldsNameToOffset["Length"]));
@@ -507,7 +512,7 @@ class __JSArray extends __JSObject{
     }
 }
 
-class __JSArrayBufferView extends __JSObject{
+class __JSArrayBufferView extends __JSObject {
     constructor(Addr) {
         super(Addr);
         this._Buffer = this._Base + new __JSValue(read_u32(Addr + JSArrayBufferViewFieldsNameToOffset["Buffer"])).Payload;
@@ -534,7 +539,7 @@ class __JSTypedArray extends __JSArrayBufferView {
     }
 }
 
-class __JSString extends __JSHeapObject{
+class __JSString extends __JSHeapObject {
     constructor(Addr) {
         super(Addr);
         this._RawHash = read_u32(Addr + JSStringFieldsNameToOffset["RawHash"])
@@ -584,35 +589,31 @@ class __JSString extends __JSHeapObject{
     }
 }
 
-class __JSScript {
+class __JSScript extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        super(Addr);
         this._Source = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSScriptFieldsNameToOffset["Source"])).Payload);
     }
 }
 
-class __JSSharedFunctionInfo {
+class __JSSharedFunctionInfo extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        super(Addr);
         this._Name = new __JSString(this._Base + new __JSValue(read_u32(Addr + JSSharedFunctionInfoFieldsNameToOffset["NameOrScopeInfo"])).Payload);
         this._Script = new __JSScript(this._Base + new __JSValue(read_u32(Addr + JSSharedFunctionInfoFieldsNameToOffset["ScriptOrDebugInfo"])).Payload);
     }
 }
 
-class __JSFeedbackVector {
+class __JSFeedbackVector extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        super(Addr);
         this._InvocationCount = read_u32(Addr + JSFeedbackVectorFieldsNamtToOffset["InvocationCount"]);
     }
 }
 
-class __JSFeedbackCell {
+class __JSFeedbackCell extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        super(Addr);
         this._Value = read_u32(Addr + JSFeedbackCellFieldsNameToOffset["Value"]);
         this._ValueMap = new __Map(this._Base + read_u32(new __JSValue(this._Base + this._Value).Payload));
         this._Has_vector = false;
@@ -624,10 +625,9 @@ class __JSFeedbackCell {
     }
 }
 
-class __JSCode {
+class __JSCode extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        super(Addr);
         this._Flags = read_u32(Addr + JSCodeFieldsNameToOffset["Flags"]);
         this._Kind = Number(this._Flags.bitwiseAnd(CodeKindEncodingMask));
     }
@@ -637,20 +637,29 @@ class __JSCode {
     }
 }
 
-class __JSFunction {
+class __JSCodeDataContainer extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
+        super(Addr);
+        this._Code = new __JSCode(new __JSValue(read_u64(Addr + JSCodeDataContainerFieldsNameToOffset["Code"])).Payload);
+    }
+}
+
+class __JSFunction extends __JSObject {
+    constructor(Addr) {
+        super(Addr);
         this._SharedFunctionInfo = new __JSSharedFunctionInfo(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["SharedFunctionInfo"])).Payload);
         this._FeedbackCell = new __JSFeedbackCell(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["FeedbackCell"])).Payload);
-        this._Code = new __JSCode(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["Code"])).Payload);
+        this._CodeDataContainer = new __JSCodeDataContainer(this._Base + new __JSValue(read_u32(Addr + JSFunctionFieldsNameToOffset["CodeDataContainer"])).Payload);
     }
 
     Display() {
         log("ObjType: JSFunction");
+        log("SharedFunctionInfo: " + this._SharedFunctionInfo._Addr.toString(16));
+        log("CodeDataContainer: " + this._CodeDataContainer._Addr.toString(16));
+        log("Code: " + this._CodeDataContainer._Code._Addr.toString(16));
         log("FunctionName: " + this._SharedFunctionInfo._Name._String);
         log("FunctionScript: " + this._SharedFunctionInfo._Script._Source._String);
-        log("FunctionKind: " + CodeKindToName[this._Code._Kind]);
+        log("FunctionKind: " + CodeKindToName[this._CodeDataContainer._Code._Kind]);
         if (this._FeedbackCell._Has_vector == true) {
             log("FunctioinInvocation: " + this._FeedbackCell._Value._InvocationCount);
         }
@@ -671,11 +680,9 @@ class __JSHeapNumber {
     }
 }
 
-class __JSRegularObject {
+class __JSRegularObject extends __JSHeapObject {
     constructor(Addr) {
-        this._Addr = Addr;
-        this._Base = this._Addr.bitwiseAnd(PointerBaseAnd);
-        this._Map = new __Map(new __JSValue(this._Base + read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["Map"])).Payload);
+        super(Addr);
         this._Elements = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["elements"]);
         this._Properties = read_u32(this._Addr + JSRegularObjectFieldsNameToOffset["properties"]);
         this._Properties = this._Map._InstanceDescriptor.Data();
